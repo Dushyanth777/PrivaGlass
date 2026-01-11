@@ -1,3 +1,4 @@
+
 /**
  * @file parser.ts
  * @description Robust parsing engine for WhatsApp export formats across various locales and platforms.
@@ -17,7 +18,7 @@ const MESSAGE_REGEXP = /^\[?(\d{1,4}[\/\.\-]\d{1,4}[\/\.\-]\d{1,4},?\s\d{1,2}:\d
 /**
  * Matches common media filenames in export logs.
  */
-const ATTACHMENT_REGEXP = /([a-zA-Z0-9._\-]+\.(?:jpg|jpeg|png|webp|gif|heic|mp4|opus|m4a|wav|pdf|sticker|doc|docx|xls|xlsx|txt))/gi;
+export const ATTACHMENT_REGEXP = /([a-zA-Z0-9._\-]+\.(?:jpg|jpeg|png|webp|gif|heic|mp4|opus|m4a|wav|pdf|sticker|doc|docx|xls|xlsx|txt))/gi;
 
 /**
  * System strings to strip from the message body during media extraction.

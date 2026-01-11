@@ -1,6 +1,7 @@
+
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { ChatState, ChatMessage, LocalStats } from './types';
-import { parseWhatsAppStringChunk, extractChatAndMediaFromZip } from './services/parser';
+import { parseWhatsAppStringChunk, extractChatAndMediaFromZip, ATTACHMENT_REGEXP } from './services/parser';
 import { getChatFromCache, saveChatToCache } from './services/db';
 import MessageBubble from './components/MessageBubble';
 
@@ -151,17 +152,12 @@ const App: React.FC = () => {
     accumulatedRef.current = [];
     setDisplayLimit(BATCH_SIZE);
     setDateRange({ from: '', to: '' });
+
     try {
       let text = '';
       let mediaMap = new Map<string, string>();
-      const cacheId = `wa-v2-${file.name}-${file.size}`;
-      const cached = await getChatFromCache(cacheId);
-      if (cached) {
-        detectMeSender(cached);
-        accumulatedRef.current = cached;
-        setState(prev => ({ ...prev, messages: cached, loading: false, stats: computeStats(cached) }));
-        return;
-      }
+      const cacheId = `wa-v3-${file.name}-${file.size}`;
+      
       if (file.name.endsWith('.zip')) {
         const result = await extractChatAndMediaFromZip(file);
         text = result.text;
@@ -169,13 +165,48 @@ const App: React.FC = () => {
       } else {
         text = await file.text();
       }
+
+      const cached = await getChatFromCache(cacheId);
+      
+      if (cached) {
+        // If we have a mediaMap, we MUST re-map even if the cache exists
+        // because Blob URLs are session-local.
+        const revived = cached.map(msg => {
+          // If the message text contains a filename, check our fresh mediaMap
+          const match = msg.text.match(ATTACHMENT_REGEXP);
+          const fileName = match ? match[0].trim() : null;
+          
+          if (fileName && mediaMap.size > 0) {
+            const freshUrl = mediaMap.get(fileName) || mediaMap.get(fileName.toLowerCase());
+            if (freshUrl) return { ...msg, mediaUrl: freshUrl };
+          }
+          
+          // Clear dead URLs if they weren't revived
+          if (msg.mediaUrl?.startsWith('blob:')) {
+            return { ...msg, mediaUrl: undefined };
+          }
+          
+          return msg;
+        });
+
+        detectMeSender(revived);
+        accumulatedRef.current = revived;
+        setState(prev => ({ ...prev, messages: revived, loading: false, stats: computeStats(revived) }));
+        return;
+      }
+
       const { nextCharIndex, messages: firstBatch } = parseWhatsAppStringChunk(text, 0, 1000, mediaMap, lastMessageRef);
       detectMeSender(firstBatch);
       accumulatedRef.current = firstBatch;
       setState(prev => ({ ...prev, messages: firstBatch, loading: false }));
+      
       if (nextCharIndex < text.length) {
         setIsBackgroundLoading(true);
         processInChunks(text, nextCharIndex, mediaMap, cacheId);
+      } else {
+        const finalStats = computeStats(accumulatedRef.current);
+        setState(prev => ({ ...prev, stats: finalStats }));
+        saveChatToCache(cacheId, accumulatedRef.current);
       }
     } catch (err: any) {
       setState(prev => ({ ...prev, loading: false, error: err.message }));
@@ -189,9 +220,11 @@ const App: React.FC = () => {
       const { nextCharIndex, messages } = parseWhatsAppStringChunk(text, currentPos, 15000, mediaMap, lastMessageRef);
       accumulatedRef.current = [...accumulatedRef.current, ...messages];
       currentPos = nextCharIndex;
+      
       if (currentPos >= text.length || accumulatedRef.current.length % 10000 === 0) {
         setState(prev => ({ ...prev, messages: accumulatedRef.current, stats: computeStats(accumulatedRef.current) }));
       }
+      
       if (currentPos < text.length) {
         requestAnimationFrame(parseNext);
       } else {

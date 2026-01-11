@@ -12,7 +12,6 @@ PrivaGlass is a high-fidelity local viewer for WhatsApp chat exports. It transfo
 ## ✨ Key Features
 
 *   **🎨 High-Fidelity Design**: A pixel-perfect recreation of the WhatsApp UI, including glassmorphism headers and native typography.
-*   **📅 Smart Date Formatting**: Automatically converts various export timestamps (e.g., `5/26/23`) into a readable `26 May 2023` format.
 *   **🔒 Private & Local**: Zero data ever leaves your device. Parsing is done entirely via client-side JavaScript.
 *   **⚡ High Performance**: Smoothly handles archives with 100,000+ messages using batched rendering and IndexedDB caching.
 *   **📸 Media Integration**: Drop a `.zip` export to see your photos, stickers, and videos inline.
